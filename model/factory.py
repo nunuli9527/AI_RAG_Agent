@@ -1,0 +1,43 @@
+"""
+模型工厂
+作用：统一创建大模型、嵌入模型。
+功能：
+创建聊天模型
+创建向量嵌入模型
+给整个项目提供模型实例
+"""
+
+from abc import ABC, abstractmethod
+from typing import Optional
+from langchain_core.embeddings import Embeddings
+from langchain_community.chat_models.tongyi import BaseChatModel
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_community.chat_models.tongyi import ChatTongyi
+from utils.config_handler import rag_conf
+
+
+# 抽象工厂类
+class BaseModelFactory(ABC):
+    @abstractmethod
+    def generator(self) -> Optional[Embeddings | BaseChatModel]:
+        pass
+
+
+class ChatModelFactory(BaseModelFactory):
+    """
+    聊天模型工厂类
+    """
+    def generator(self) -> Optional[Embeddings | BaseChatModel]:
+        return ChatTongyi(model=rag_conf["chat_model_name"])
+
+
+class EmbeddingModelFactory(BaseModelFactory):
+    """
+    嵌入模型工厂类
+    """
+    def generator(self) -> Optional[Embeddings | BaseChatModel]:
+        return DashScopeEmbeddings(model=rag_conf["embedding_model_name"])
+
+
+chat_model = ChatModelFactory().generator()
+embed_model = EmbeddingModelFactory().generator()
