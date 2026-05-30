@@ -8,10 +8,10 @@ RAG 总结问答服务（查资料）
 给 Agent 提供 rag_summerize 工具能力
 """
 
-from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 
 from rag.vector_store import VectorStoreService
+from rag.bm25_search import BM25HybridSearch
 from utils.prompt_loader import load_rag_prompt
 from langchain_core.prompts import PromptTemplate
 from model.factory import chat_model
@@ -29,7 +29,14 @@ class RagSummarizeService():
     """
     def __init__(self):
         self.vector_store = VectorStoreService()
-        self.retriever = self.vector_store.get_retriever()
+        self.vector_retriever = self.vector_store.get_retriever()
+
+        # 确保文档已加载（md5去重保证不会重复处理）
+        self.vector_store.load_document()
+
+        # 初始化BM25混合检索，复用向量库已有的文档分块
+        self.hybrid_search = BM25HybridSearch(documents=self.vector_store.get_documents())
+
         self.prompt_text = load_rag_prompt()
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.model = chat_model
@@ -43,13 +50,9 @@ class RagSummarizeService():
         chain = self.prompt_template | print_prompt | self.model | StrOutputParser()
         return chain
 
-    def retriever_docs(self, query: str) -> list[str]:
-        """
-        通过向量库搜索内容
-        :param query: 用户问题
-        :return: 搜索到的内容
-        """
-        return self.retriever.invoke(query)
+    def retriever_docs(self, query: str):
+        # 直接调用融合检索结果
+        return self.hybrid_search.hybrid_search(query, self.vector_retriever, top_k=5)
 
     def rag_summarize(self, query: str) -> str:
         """
