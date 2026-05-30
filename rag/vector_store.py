@@ -40,6 +40,19 @@ class VectorStoreService:
             length_function=len
         )
 
+        self.documents: list[Document] = []
+
+    def get_documents(self) -> list[Document]:
+        if self.documents:
+            return self.documents
+        results = self.vector_store.get()
+        if results["documents"]:
+            self.documents = [
+                Document(page_content=content, metadata=meta)
+                for content, meta in zip(results["documents"], results["metadatas"])
+            ]
+        return self.documents
+
     def get_retriever(self):
         """
         获取向量库的检索器
@@ -125,6 +138,9 @@ class VectorStoreService:
 
                 # 将内容存入向量库
                 self.vector_store.add_documents(split_document)
+
+                # 将分块文档加入本地追踪列表，供 BM25 等混合检索复用
+                self.documents.extend(split_document)
 
                 # 记录这个已经处理好的md5, 避免下次重复加载
                 save_md5_hex(md5_hex)
