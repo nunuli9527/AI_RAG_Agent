@@ -12,7 +12,9 @@ from langchain_core.output_parsers import StrOutputParser
 
 from rag.vector_store import VectorStoreService
 from rag.bm25_search import BM25HybridSearch
+from rag.reranker import RerankerService
 from utils.prompt_loader import load_rag_prompt
+from utils.config_handler import chroma_conf
 from langchain_core.prompts import PromptTemplate
 from model.factory import chat_model
 
@@ -37,6 +39,12 @@ class RagSummarizeService():
         # 初始化BM25混合检索，复用向量库已有的文档分块
         self.hybrid_search = BM25HybridSearch(documents=self.vector_store.get_documents())
 
+        # 初始化Reranker精排服务
+        self.reranker = RerankerService()
+
+        # 粗排候选数：RRF融合后保留多少条给Reranker精排
+        self.candidate_k = chroma_conf.get("rerank_candidate_k", 20)
+
         self.prompt_text = load_rag_prompt()
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.model = chat_model
@@ -51,8 +59,12 @@ class RagSummarizeService():
         return chain
 
     def retriever_docs(self, query: str):
-        # 直接调用融合检索结果
-        return self.hybrid_search.hybrid_search(query, self.vector_retriever, top_k=5)
+        # 第一步：RRF 粗排 → 召回 Top-N 候选
+        candidates = self.hybrid_search.hybrid_search(
+            query, self.vector_retriever, top_k=self.candidate_k
+        )
+        # 第二步：Reranker 精排 → 取 Top-5 最终结果
+        return self.reranker.rerank(query, candidates, top_k=5)
 
     def rag_summarize(self, query: str) -> str:
         """
