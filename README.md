@@ -168,11 +168,14 @@ curl "http://localhost:8000/chat/stream?query=扫地机器人怎么保养"
 - **接口**：FastAPI SSE（流式 HTTP）
 - **测试**：pytest（33 个单元测试）
 
----
 
-## 面试要点
+[//]: # (## 面试要点)
 
-> 1. **中间件机制**：基于 LangGraph Runtime 的三层中间件，`@wrap_tool_call` + `@dynamic_prompt` 实现报告场景下的提示词自动切换，单次会话上下文隔离。
-> 2. **混合检索**：Dense + Sparse 双路检索，RRF 融合取 Top-K 候选，Reranker 精排取 Top-5，比单纯向量检索提升召回质量。
-> 3. **工程实践**：MD5 去重避免重复入库、YAML 配置分离、pytest 测试覆盖、SSE 流式输出 + 异常兜底。
-> 4. **双入口**：Streamlit 内部演示 + FastAPI SSE 对外集成，共享同一套 Agent 核心代码。
+[//]: # ()
+[//]: # (> 1. **中间件机制**：基于 LangGraph Runtime 的三层中间件，`@wrap_tool_call` + `@dynamic_prompt` 实现报告场景下的提示词自动切换，单次会话上下文隔离。)
+
+[//]: # (> 2. **混合检索**：Dense + Sparse 双路检索，RRF 融合取 Top-K 候选，Reranker 精排取 Top-5，比单纯向量检索提升召回质量。)
+
+[//]: # (> 3. **工程实践**：MD5 去重避免重复入库、YAML 配置分离、pytest 测试覆盖、SSE 流式输出 + 异常兜底。)
+
+[//]: # (> 4. **双入口**：Streamlit 内部演示 + FastAPI SSE 对外集成，共享同一套 Agent 核心代码。)
