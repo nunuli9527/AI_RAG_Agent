@@ -1,1 +1,4 @@
 external_data_path: data/external/records.csv
+
+city_api_url : https://geoapi.qweather.com/v2/city/lookup
+weather_api_url : https://devapi.qweather.com/v7/weather/now

@@ -38,7 +38,8 @@ class ReactAgent:
         # 第三个参数context就是上下文runtime中的信息，就是我们做提示词切换的标记
         for chunk in self.agent.stream(input_dict, stream_mode="values", context={"report": False}):
             lastest_message = chunk["messages"][-1]
-            if lastest_message:
+            # 只输出 AI 消息，跳过用户消息和工具返回
+            if lastest_message and lastest_message.type in ("ai", "assistant"):
                 yield lastest_message.content.strip() + "\n"
 
 

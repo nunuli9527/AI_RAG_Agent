@@ -21,7 +21,7 @@ DEFAULT_LOG_FORMAT = logging.Formatter(
 
 def get_logger(
         name: str = "agent",
-        console_level: int = logging.INFO,
+        console_level: int = logging.ERROR,
         file_level: int = logging.DEBUG,
         log_file = None
 ) -> logging.Logger:

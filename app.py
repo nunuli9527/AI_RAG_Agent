@@ -15,6 +15,11 @@ import os
 # 绕过系统代理（代理自签证书会导致 SSL 验证失败）
 os.environ["NO_PROXY"] = "*"
 os.environ["no_proxy"] = "*"
+# 额外保险：清空代理地址
+os.environ["HTTP_PROXY"] = ""
+os.environ["HTTPS_PROXY"] = ""
+os.environ["http_proxy"] = ""
+os.environ["https_proxy"] = ""
 
 import time
 import streamlit as st

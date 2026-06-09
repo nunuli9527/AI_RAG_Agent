@@ -18,6 +18,7 @@ from rag.rag_service import RagSummarizeService
 import random
 from utils.config_handler import agent_conf
 from utils.path_tool import get_abs_path
+import requests
 
 rag = RagSummarizeService()
 
@@ -35,7 +36,27 @@ def rag_summerize(query: str):
 
 @tool(description="获取指定城市的天气，以消息字符串的形式返回")
 def get_weather(city: str) -> str:
-    return f"城市{city}天气为晴天，气温26摄氏度，空气湿度50%，南风1级，AQI21，最近6小时降雨概率极低"
+    """对接 wttr.in 实时天气 API，无需注册，返回结构化 JSON"""
+    try:
+        session = requests.Session()
+        session.trust_env = False
+
+        url = f"https://wttr.in/{city}?format=j1"
+        resp = session.get(url)
+        data = resp.json()
+
+        current = data["current_condition"][0]
+        return (
+            f"城市{city}天气为{current['weatherDesc'][0]['value']}，"
+            # f"气温{current['temp_C']}℃，"
+            # f"体感温度{current['FeelsLikeC']}℃，"
+            # f"空气湿度{current['humidity']}%，"
+            # f"风向{current['winddir16Point']}，"
+            # f"风力{current['windspeedKmph']}km/h"
+        )
+    except Exception as e:
+        logger.error(f"[get_weather]获取{city}天气失败: {e}")
+        return f"获取{city}天气失败"
 
 
 @tool(description="获取用户所在城市的名称，以纯字符串形式返回")
