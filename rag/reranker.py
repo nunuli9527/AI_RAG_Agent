@@ -6,10 +6,8 @@ Rerank 重排序服务
 """
 
 from typing import List
-
 from dashscope import TextReRank
 from langchain_core.documents import Document
-
 from utils.config_handler import rag_conf
 from utils.logger_handler import logger
 

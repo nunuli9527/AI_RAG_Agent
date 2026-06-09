@@ -21,7 +21,7 @@ python agent/react_agent.py
 python rag/rag_service.py
 
 # 测试 BM25 混合搜索（含 RRF 融合验证）
-python rag/bm25_search.py
+python rag/bm25_RRF.py
 ```
 
 没有 lint/格式化配置，项目无 `requirements.txt` 或 `pyproject.toml`，依赖需手动安装。

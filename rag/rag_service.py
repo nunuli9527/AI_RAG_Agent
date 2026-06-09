@@ -11,7 +11,7 @@ RAG 总结问答服务（查资料）
 from langchain_core.output_parsers import StrOutputParser
 
 from rag.vector_store import VectorStoreService
-from rag.bm25_search import BM25HybridSearch
+from rag.bm25_RRF import BM25HybridSearch
 from rag.reranker import RerankerService
 from utils.prompt_loader import load_rag_prompt
 from utils.config_handler import chroma_conf

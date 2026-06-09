@@ -5,10 +5,31 @@ from langchain_core.documents import Document
 
 
 def preprocessing_func(text: str) -> List[str]:
+    """
+    文本预处理函数，使用jieba进行中文分词
+    
+    Args:
+        text: 待分词的原始文本字符串
+        
+    Returns:
+        分词后的词语列表
+    """
     return list(jieba.cut(text))
 
 
 def rrf(vector_results_ids: List[int], text_results_ids: List[int], k: int = 10, m: int = 60) -> List[int]:
+    """
+    倒数秩融合算法（Reciprocal Rank Fusion），将向量检索和BM25检索的结果进行融合排序
+    
+    Args:
+        vector_results_ids: 向量检索返回的文档ID列表，按相关性得分降序排列
+        text_results_ids: BM25文本检索返回的文档ID列表，按相关性得分降序排列
+        k: 返回的融合结果数量上限，默认为10
+        m: RRF算法的平滑参数，用于调节排名对得分的影响，默认为60
+        
+    Returns:
+        融合后的文档ID列表，按融合得分降序排列，最多返回k个结果
+    """
     doc_scores = {}
     for rank, doc_id in enumerate(vector_results_ids):
         doc_scores[doc_id] = doc_scores.get(doc_id, 0) + 1 / (rank + m)
@@ -21,7 +42,16 @@ def rrf(vector_results_ids: List[int], text_results_ids: List[int], k: int = 10,
 
 
 class BM25HybridSearch:
+    """
+    BM25混合检索类，结合向量检索和BM25文本检索的优势，通过RRF算法实现多路召回融合
+    """
     def __init__(self, documents: List[Document]):
+        """
+        初始化BM25混合检索器
+        
+        Args:
+            documents: 文档列表，用于构建BM25检索索引
+        """
         self.docs = documents
         self.bm25_retriever = BM25Retriever.from_documents(
             documents=documents,
@@ -30,6 +60,17 @@ class BM25HybridSearch:
         self.bm25_retriever.k = 10
 
     def hybrid_search(self, query: str, vector_retriever, top_k: int = 5) -> List[Document]:
+        """
+        执行混合检索，同时使用向量检索和BM25检索，并通过RRF算法融合两路结果
+        
+        Args:
+            query: 用户查询字符串
+            vector_retriever: 向量检索器实例，用于执行语义相似度检索
+            top_k: 返回的融合结果数量上限，默认为5
+            
+        Returns:
+            融合后的文档列表，按融合得分降序排列
+        """
         vector_res: List[Document] = vector_retriever.invoke(query)
         bm25_res: List[Document] = self.bm25_retriever.invoke(query)
 
@@ -48,6 +89,7 @@ class BM25HybridSearch:
             if idx is not None:
                 bm25_ids.append(idx)
 
+        # 使用RRF算法融合两路检索结果
         fused_ids = rrf(vector_ids, bm25_ids, k=top_k)
         return [self.docs[doc_id] for doc_id in fused_ids]
 
