@@ -78,9 +78,9 @@ class VectorStoreService:
                 open(get_abs_path(chroma_conf["md5_hex_store"]), "w", encoding="utf-8").close()
                 return False            # md5 没处理过
 
-            with open(get_abs_path(chroma_conf["md5_hex_store"]), "r"):
+            with open(get_abs_path(chroma_conf["md5_hex_store"]), "r", encoding="utf-8") as f:
                 # 遍历
-                for line in open(get_abs_path(chroma_conf["md5_hex_store"]), "r", encoding="utf-8"):
+                for line in f:
                     if md5_for_check in line:
                         return True     # md5 处理过
 

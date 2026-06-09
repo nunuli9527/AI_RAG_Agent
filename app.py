@@ -10,6 +10,12 @@
 保存对话记录
 """
 
+import os
+
+# 绕过系统代理（代理自签证书会导致 SSL 验证失败）
+os.environ["NO_PROXY"] = "*"
+os.environ["no_proxy"] = "*"
+
 import time
 import streamlit as st
 from agent.react_agent import ReactAgent

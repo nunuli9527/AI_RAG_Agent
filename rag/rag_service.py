@@ -19,12 +19,6 @@ from langchain_core.prompts import PromptTemplate
 from model.factory import chat_model
 
 
-def print_prompt(prompt):
-    print("-"*20)
-    print(prompt.to_string())
-    print("-"*20)
-    return prompt
-
 class RagSummarizeService():
     """
     总结服务: 用户提问, 搜索参考资料, 将提问和参考资料发给模型, 让模型总结回复
@@ -55,7 +49,7 @@ class RagSummarizeService():
         初始化链
         :return: 链
         """
-        chain = self.prompt_template | print_prompt | self.model | StrOutputParser()
+        chain = self.prompt_template | self.model | StrOutputParser()
         return chain
 
     def retriever_docs(self, query: str):
@@ -73,12 +67,6 @@ class RagSummarizeService():
         :return: 总结结果
         """
         context_docs = self.retriever_docs(query)
-
-        context = ""
-        # counter = 0
-        # for doc in context_docs:
-        #     counter += 1
-        #     context += f"[参考资料{counter}]: 参考资料: {doc.page_content} | 参考元数据: {doc.metadata}\n"
 
         # 用换行分开，每个文档块单独一行
         context = "\n".join([doc.page_content for doc in context_docs])
