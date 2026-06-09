@@ -48,11 +48,6 @@ def get_weather(city: str) -> str:
         current = data["current_condition"][0]
         return (
             f"城市{city}天气为{current['weatherDesc'][0]['value']}，"
-            # f"气温{current['temp_C']}℃，"
-            # f"体感温度{current['FeelsLikeC']}℃，"
-            # f"空气湿度{current['humidity']}%，"
-            # f"风向{current['winddir16Point']}，"
-            # f"风力{current['windspeedKmph']}km/h"
         )
     except Exception as e:
         logger.error(f"[get_weather]获取{city}天气失败: {e}")

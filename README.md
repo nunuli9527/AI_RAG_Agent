@@ -1,49 +1,178 @@
 # AI_RAG_Agent
-基于大模型的智能体应用框架，支持动态提示词、工具调用拦截与流式对话输出。
+
+基于 LangChain/LangGraph 的 RAG + Agent 智能体应用，支持动态提示词切换、工具调用拦截、混合检索、SSE 流式对话。
+
+> 扫地机器人智能客服场景 | 机械转行 AI 项目 | [GitHub](https://github.com/nunuli9527/AI_RAG_Agent)
 
 ---
 
-## 核心功能亮点
-- **三层中间件生命周期管控**
-  - `@wrap_tool_call` 工具调用中间件：全局拦截监听所有工具调用，自定义业务标记写入运行时上下文；
-  - `@before_model` 模型前置中间件：大模型调用前自动打印对话状态、消息日志，方便调试与链路追踪；
-  - `@dynamic_prompt` 动态提示词中间件：根据上下文标记自动切换系统提示词，无需硬编码绑定固定 Prompt。
+## 项目结构
 
-- **Runtime 运行时上下文机制**
-  - 基于单次对话请求隔离的全局共享字典 `runtime.context`；
-  - 支持中间件跨环节传参、自定义业务标记（如报告模式标识）；
-  - 单次会话结束自动销毁，用户 / 会话之间数据隔离，无残留污染。
+```
+AI_RAG_Agent/
+├── agent/                     # Agent 核心
+│   ├── react_agent.py         # ReAct Agent 封装，流式对话入口
+│   └── tools/
+│       ├── agent_tools.py     # 工具集：RAG检索、天气查询、用户信息、报告标记
+│       └── middleware.py       # 三层中间件：工具拦截 / 模型日志 / 动态提示词
+├── rag/                       # RAG 检索链
+│   ├── rag_service.py         # RAG 总结服务（检索 + LLM 生成）
+│   ├── vector_store.py        # Chroma 向量库、MD5 去重
+│   ├── bm25_RRF.py            # BM25 关键词检索 + RRF 融合
+│   └── reranker.py            # Reranker 精排
+├── model/
+│   └── factory.py             # 模型工厂：聊天模型 + 嵌入模型
+├── config/                    # YAML 配置
+│   ├── agent.yml              # Agent 配置（工具 URL、外部数据路径）
+│   ├── chroma.yml             # Chroma 向量库配置
+│   ├── prompts.yml            # 提示词文件路径配置
+│   └── rag.yml                # RAG 模型配置
+├── prompts/                   # 提示词模板
+│   ├── main_prompt.txt        # 默认系统提示词
+│   ├── rag_summarize.txt      # RAG 总结提示词
+│   └── report_prompt.txt      # 报告生成提示词
+├── utils/                     # 工具函数
+│   ├── config_handler.py      # YAML 配置加载
+│   ├── prompt_loader.py       # 提示词加载（异常安全）
+│   ├── logger_handler.py      # 日志封装
+│   ├── file_handler.py        # 文件处理
+│   └── path_tool.py           # 路径工具
+├── tests/                     # pytest 单元测试（33 个）
+│   ├── conftest.py            # 全局 fixtures
+│   ├── test_prompt_loader.py  # 提示词加载测试
+│   ├── test_config.py         # 配置加载测试
+│   ├── test_api.py            # FastAPI SSE 接口测试
+│   └── test_tools.py          # 工具函数测试
+├── app.py                     # Streamlit 聊天界面入口
+├── api.py                     # FastAPI SSE 流式接口
+├── data/                      # 知识库文档 & 外部数据
+├── chroma_db/                 # 向量库持久化目录
+├── logs/                      # 日志文件
+└── README.md
+```
 
-- **动态场景 Prompt 自动切换**
-  通过工具中间件写入业务标记，动态提示词中间件读取标记，自动切换普通对话提示词 / 报告生成专用提示词，实现业务场景无感切换，解耦提示词与主业务逻辑。
+---
 
-- **Agent 流式对话输出封装**
-  提供 `execute_stream` 流式接口，基于 `agent.stream` 增量返回会话状态，解析消息片段通过 `yield` 实现打字机流式输出，适配前端实时展示场景。
+## 核心功能
 
-- **工具与模型调用链路闭环**
-  用户请求 → 初始化上下文默认值 → 模型首次思考 → 调用工具 → 工具中间件修改上下文标记 → 模型二次加载动态提示词 → 生成业务专属回答 → 流式返回前端。
+### 1. 三层中间件体系
+
+| 中间件 | 装饰器 | 作用 |
+|---|---|---|
+| 工具拦截 | `@wrap_tool_call` | 全局监听工具调用，日志记录，注入运行时上下文标记 |
+| 模型日志 | `@before_model` | 模型调用前打印对话状态，便于调试 |
+| 动态提示词 | `@dynamic_prompt` | 根据 `runtime.context` 自动切换系统提示词 |
+
+**流程**：用户说"生成报告" → `fill_context_for_report` 工具写入 `context.report=True` → 下轮模型调用时 `@dynamic_prompt` 自动加载报告生成提示词。
+
+### 2. RAG 混合检索链
+
+```
+用户提问 → 向量检索(Dense) + BM25(Sparse) → RRF 融合粗排 → Reranker 精排 → Top-5 文档 → LLM 总结
+```
+
+### 3. 双入口架构
+
+| 入口 | 命令 | 用途 |
+|---|---|---|
+| Streamlit | `streamlit run app.py` | 内部演示、聊天调试 |
+| FastAPI SSE | `uvicorn api:app --port 8000` | 外部系统调用、流式接口 |
+
+### 4. 真实 API 对接
+
+- **天气**：对接 [wttr.in](https://wttr.in) 实时天气 API（无需注册）
+- **大模型**：阿里百炼 DashScope（ChatTongyi + DashScopeEmbeddings）
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- Python 3.12+
+- 阿里百炼 API Key（`DASHSCOPE_API_KEY` 环境变量）
+
+### 安装
+
+```bash
+pip install langchain langchain-community langgraph chromadb streamlit fastapi uvicorn pytest jieba pyyaml dashscope
+```
+
+### 配置
+
+1. 按需修改 `config/*.yml`
+2. 设置环境变量 `DASHSCOPE_API_KEY`
+
+```powershell
+# Windows PowerShell
+$env:DASHSCOPE_API_KEY = "你的key"
+```
+
+3. （如果机器有代理）API 调用会自动绕过，无需手动配置
+
+### 启动
+
+```bash
+# 界面模式
+streamlit run app.py
+
+# API 模式（另开终端）
+uvicorn api:app --reload --port 8000
+```
+
+浏览器打开：
+- 界面：`http://localhost:8501`
+- API 文档：`http://localhost:8000/docs`
+
+### 测试
+
+```bash
+# 单元测试（不含集成）
+pytest tests/ -v -m "not integration"
+
+# 集成测试（会调 LLM，较慢）
+pytest tests/ -v -m "integration"
+```
+
+---
+
+## API 接口
+
+### `GET /chat/stream?query=你好`
+
+SSE 流式对话，响应格式：
+
+```
+data: 回答内容片段
+data: 下一段内容
+event: error
+data: 错误信息（仅在异常时）
+event: done
+data: [DONE]
+```
+
+示例：
+
+```bash
+curl "http://localhost:8000/chat/stream?query=扫地机器人怎么保养"
+```
 
 ---
 
 ## 技术栈
-- Python
-- 大模型 Agent 框架（自定义中间件装饰器体系）
-- Runtime 运行时上下文、状态机流转
-- 流式输出 Generator / yield
-- 动态 Prompt 调度、工具调用拦截
+
+- **框架**：LangChain / LangGraph（Agent 编排）
+- **检索**：Chroma 向量库 + BM25 + RRF 融合 + Reranker 重排序
+- **模型**：阿里百炼 DashScope（qwen-turbo / text-embedding-v3）
+- **前端**：Streamlit（聊天界面）
+- **接口**：FastAPI SSE（流式 HTTP）
+- **测试**：pytest（33 个单元测试）
 
 ---
 
-## 项目架构流程
-1.  接口入口初始化会话上下文，默认注入业务标识默认值；
-2.  模型调用前触发日志中间件，记录对话消息数量与最新消息内容；
-3.  触发工具调用时，工具中间件拦截并写入场景标记到 `runtime.context`；
-4.  动态提示词中间件读取上下文标记，自动匹配加载对应系统提示词；
-5.  大模型依据动态 Prompt 生成回答，通过循环解析状态字典 + `yield` 逐段流式返回。
+## 面试要点
 
----
-
-## 适用场景
-- 大模型多场景智能体（普通问答、报告生成、业务工单等）；
-- 需要动态切换系统提示词的业务系统；
-- 需全局监听工具调用、做日志审计与流程管控的 Agent 应用。
+> 1. **中间件机制**：基于 LangGraph Runtime 的三层中间件，`@wrap_tool_call` + `@dynamic_prompt` 实现报告场景下的提示词自动切换，单次会话上下文隔离。
+> 2. **混合检索**：Dense + Sparse 双路检索，RRF 融合取 Top-K 候选，Reranker 精排取 Top-5，比单纯向量检索提升召回质量。
+> 3. **工程实践**：MD5 去重避免重复入库、YAML 配置分离、pytest 测试覆盖、SSE 流式输出 + 异常兜底。
+> 4. **双入口**：Streamlit 内部演示 + FastAPI SSE 对外集成，共享同一套 Agent 核心代码。
